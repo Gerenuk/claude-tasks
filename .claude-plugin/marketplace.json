@@ -1,0 +1,13 @@
+{
+  "name": "claude-tasks",
+  "Gerenuk": {
+    "name": "Gerenuk"
+  },
+  "description": "Local marketplace serving the claude-tasks plugin from this repo.",
+  "plugins": [
+    {
+      "name": "claude-tasks",
+      "source": "./"
+    }
+  ]
+}

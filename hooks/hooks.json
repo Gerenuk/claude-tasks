@@ -1,0 +1,28 @@
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "startup|clear",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "command -v claude-tasks >/dev/null 2>&1 && command -v itemctl >/dev/null 2>&1 && exec claude-tasks hook session-start || echo '{\"systemMessage\": \"claude-tasks plugin: claude-tasks or itemctl is not on PATH; install both with: uv tool install --with-executables-from itemctl git+https://github.com/Gerenuk/claude-tasks\"}'",
+            "timeout": 5
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "command -v itemctl >/dev/null 2>&1 || exit 0; exec itemctl hook pre-tool-use",
+            "timeout": 10
+          }
+        ]
+      }
+    ]
+  }
+}

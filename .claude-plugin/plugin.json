@@ -1,0 +1,8 @@
+{
+  "name": "claude-tasks",
+  "version": "0.1.0",
+  "description": "The /task skill and the claude-tasks SessionStart hook: the waiting-ideas line and any open handover, from the claude-tasks CLI on PATH.",
+  "author": {
+    "name": "Gerenuk"
+  }
+}

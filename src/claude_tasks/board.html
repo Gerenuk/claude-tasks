@@ -1,0 +1,707 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>claude-tasks board</title>
+<style>
+:root {
+  --bg: #f5f6f8;
+  --surface: #ffffff;
+  --border: #dde1e7;
+  --text: #1b1f24;
+  --text-dim: #5b6270;
+  --accent: #3b5bdb;
+  --danger: #c92a2a;
+  --built: #2f9e44;
+  --dropped: #868e96;
+  --superseded: #1971c2;
+  --radius: 8px;
+  --gap: 12px;
+  --font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #15171c;
+    --surface: #1e2129;
+    --border: #2b303a;
+    --text: #e7e9ee;
+    --text-dim: #9aa3b2;
+    --accent: #7d97fb;
+    --danger: #ff8787;
+    --built: #63e28a;
+    --dropped: #a8b0bd;
+    --superseded: #74c0fc;
+  }
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; background: var(--bg); color: var(--text); }
+body { font-family: var(--font); }
+h1, h2, h3 { font-weight: 600; }
+button { font-family: inherit; }
+#board-header { padding: var(--gap) calc(var(--gap) * 1.5); border-bottom: 1px solid var(--border); }
+#board-header h1 { margin: 0 0 4px; font-size: 1.25em; }
+#header-counts { font-size: 0.9em; color: var(--text-dim); }
+#header-stores, #header-generated { font-size: 0.78em; color: var(--text-dim); margin-top: 2px; }
+#controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--gap);
+  align-items: center;
+  padding: var(--gap) calc(var(--gap) * 1.5);
+  border-bottom: 1px solid var(--border);
+}
+#search {
+  flex: 1 1 220px;
+  padding: 6px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  color: var(--text);
+}
+#tag-select {
+  padding: 5px 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  color: var(--text);
+}
+.chip-row { display: flex; flex-wrap: wrap; gap: 6px; }
+.toggle-chip {
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text-dim);
+  border-radius: 999px;
+  padding: 4px 10px;
+  font-size: 0.8em;
+  cursor: pointer;
+}
+.toggle-chip.active { background: var(--chip-color, var(--accent)); color: #fff; border-color: transparent; }
+.toggle { display: flex; align-items: center; gap: 6px; font-size: 0.85em; color: var(--text-dim); }
+#columns {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: var(--gap);
+  padding: calc(var(--gap) * 1.5);
+  align-items: start;
+}
+@media (max-width: 800px) {
+  #columns { grid-template-columns: 1fr; }
+}
+.column { display: flex; flex-direction: column; min-width: 0; }
+.column-head {
+  font-size: 0.85em;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-dim);
+  border-bottom: 2px solid var(--border);
+  padding-bottom: 6px;
+  margin: 0 0 var(--gap);
+}
+.column-unknown .column-head { color: var(--danger); border-color: var(--danger); }
+.column-head .flag { margin-right: 4px; }
+.column-body { display: flex; flex-direction: column; min-height: 4px; }
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 10px 12px;
+  margin-bottom: var(--gap);
+  cursor: pointer;
+}
+.card:hover, .card:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.14);
+}
+.card-top { display: flex; justify-content: space-between; align-items: center; gap: 6px; }
+.card-id { font-family: var(--mono); font-size: 0.82em; color: var(--text-dim); }
+.chip.store-chip {
+  background: var(--chip-color, var(--accent));
+  color: #fff;
+  border-radius: 999px;
+  padding: 2px 8px;
+  font-size: 0.7em;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.card-title { margin: 6px 0 4px; font-size: 1em; line-height: 1.3; }
+.tag-row { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 4px; }
+.pill {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 1px 7px;
+  font-size: 0.72em;
+  color: var(--text-dim);
+}
+.card-meta { font-size: 0.8em; color: var(--text-dim); }
+.card-line { font-size: 0.82em; margin-top: 4px; color: var(--text-dim); }
+.card-line.reason {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+.badge {
+  display: inline-block;
+  margin-top: 6px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 0.72em;
+  font-weight: 600;
+  color: #fff;
+}
+.badge.outcome-built { background: var(--built); }
+.badge.outcome-dropped { background: var(--dropped); }
+.badge.outcome-superseded { background: var(--superseded); }
+.badge.outcome-unknown { background: var(--text-dim); }
+.badge.unknown-state-badge { background: var(--danger); }
+#modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  z-index: 10;
+}
+#modal-backdrop[hidden] { display: none; }
+#modal {
+  background: var(--surface);
+  color: var(--text);
+  max-width: 720px;
+  width: 100%;
+  max-height: 85vh;
+  overflow: auto;
+  border-radius: var(--radius);
+  padding: 20px;
+  position: relative;
+}
+#modal-close {
+  position: absolute;
+  top: 8px;
+  right: 10px;
+  border: none;
+  background: transparent;
+  font-size: 1.5em;
+  line-height: 1;
+  color: var(--text-dim);
+  cursor: pointer;
+}
+.field-table { width: 100%; border-collapse: collapse; margin: 12px 0; font-size: 0.85em; }
+.field-table th {
+  text-align: left;
+  color: var(--text-dim);
+  font-family: var(--mono);
+  vertical-align: top;
+  padding: 3px 10px 3px 0;
+  white-space: nowrap;
+}
+.field-table td { padding: 3px 0; word-break: break-word; }
+.show-line { display: flex; align-items: center; gap: 8px; margin: 12px 0; flex-wrap: wrap; }
+.show-line code {
+  background: var(--bg);
+  padding: 4px 8px;
+  border-radius: 6px;
+  font-family: var(--mono);
+  font-size: 0.85em;
+}
+.show-line button {
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  border-radius: var(--radius);
+  padding: 4px 10px;
+  font-size: 0.8em;
+  cursor: pointer;
+}
+.body-text {
+  white-space: pre-wrap;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 10px;
+  font-size: 0.85em;
+  max-height: 40vh;
+  overflow: auto;
+}
+a { color: var(--accent); }
+.empty-note { color: var(--text-dim); font-size: 0.85em; padding: 4px 0; }
+</style>
+</head>
+<body>
+<div id="app">
+  <header id="board-header">
+    <h1>claude-tasks board</h1>
+    <div id="header-counts"></div>
+    <div id="header-stores"></div>
+    <div id="header-generated"></div>
+  </header>
+  <section id="controls">
+    <input id="search" type="search" placeholder="Search id, title, tags, body…" autocomplete="off">
+    <div id="store-chips" class="chip-row" aria-label="Stores"></div>
+    <select id="tag-select" aria-label="Tag"></select>
+    <div id="size-chips" class="chip-row" aria-label="Sizes"></div>
+    <label class="toggle"><input type="checkbox" id="closed-toggle"> show closed</label>
+  </section>
+  <main id="columns"></main>
+</div>
+<div id="modal-backdrop" hidden>
+  <div id="modal" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+    <button id="modal-close" type="button" aria-label="Close">&times;</button>
+    <div id="modal-body"></div>
+  </div>
+</div>
+<script type="application/json" id="records">/*__CLAUDE_TASKS_BOARD_RECORDS__*/</script>
+<script type="application/json" id="board-meta">/*__CLAUDE_TASKS_BOARD_META__*/</script>
+<script>
+(function () {
+  "use strict";
+
+  function readJSON(id) {
+    return JSON.parse(document.getElementById(id).textContent);
+  }
+
+  var records = readJSON("records");
+  var meta = readJSON("board-meta");
+
+  var KNOWN_STATES = ["ready", "open", "parked", "closed"];
+  var STORE_COLORS = ["#3b5bdb", "#e8590c", "#2f9e44", "#ae3ec9", "#1098ad", "#f08c00"];
+
+  function storePrefixes() {
+    return meta.stores.map(function (s) { return s.prefix; });
+  }
+
+  function storeColor(prefix) {
+    var idx = storePrefixes().indexOf(prefix);
+    return STORE_COLORS[(idx < 0 ? 0 : idx) % STORE_COLORS.length];
+  }
+
+  function allTags() {
+    var seen = new Set();
+    records.forEach(function (r) {
+      (Array.isArray(r.tags) ? r.tags : []).forEach(function (t) { seen.add(String(t)); });
+    });
+    return Array.from(seen).sort();
+  }
+
+  function allSizes() {
+    var seen = new Set();
+    records.forEach(function (r) {
+      if (typeof r.size === "string" && r.size) seen.add(r.size);
+    });
+    return Array.from(seen).sort();
+  }
+
+  function ageDays(created) {
+    if (typeof created !== "string" || !/^\d{4}-\d{2}-\d{2}/.test(created)) return null;
+    var then = new Date(created.slice(0, 10) + "T00:00:00Z").getTime();
+    if (isNaN(then)) return null;
+    return Math.max(0, Math.floor((Date.now() - then) / 86400000));
+  }
+
+  function sortKey(r) {
+    return typeof r.created === "string" && r.created ? r.created : "9999-99-99";
+  }
+
+  function fileUrl(path) {
+    if (typeof path !== "string" || !path) return "#";
+    return "file://" + path.split("/").map(encodeURIComponent).join("/");
+  }
+
+  // --- filters, reflected in location.hash ----------------------------------------------------
+
+  function defaultFilters() {
+    return {
+      q: "",
+      stores: new Set(storePrefixes()),
+      tag: "",
+      sizes: new Set(allSizes()),
+      closed: false
+    };
+  }
+
+  function parseHash() {
+    var filters = defaultFilters();
+    try {
+      var raw = location.hash.replace(/^#/, "");
+      if (!raw) return filters;
+      var params = new URLSearchParams(raw);
+      if (params.has("q")) filters.q = params.get("q");
+      if (params.has("store")) {
+        filters.stores = new Set(params.get("store").split(",").filter(Boolean));
+      }
+      if (params.has("tag")) filters.tag = params.get("tag");
+      if (params.has("size")) {
+        filters.sizes = new Set(params.get("size").split(",").filter(Boolean));
+      }
+      if (params.has("closed")) filters.closed = params.get("closed") === "1";
+    } catch (e) {
+      /* a malformed or inaccessible hash: fall back to defaults rather than fail to render */
+    }
+    return filters;
+  }
+
+  function serializeHash(filters) {
+    try {
+      var params = new URLSearchParams();
+      if (filters.q) params.set("q", filters.q);
+      var allStores = storePrefixes();
+      if (filters.stores.size !== allStores.length) {
+        params.set("store", allStores.filter(function (p) { return filters.stores.has(p); }).join(","));
+      }
+      if (filters.tag) params.set("tag", filters.tag);
+      var sizes = allSizes();
+      if (filters.sizes.size !== sizes.length) {
+        params.set("size", sizes.filter(function (s) { return filters.sizes.has(s); }).join(","));
+      }
+      if (filters.closed) params.set("closed", "1");
+      var next = "#" + params.toString();
+      history.replaceState(null, "", next === "#" ? "#" : next);
+    } catch (e) {
+      /* hash storage unavailable: filters simply do not survive a reload */
+    }
+  }
+
+  var filters = parseHash();
+
+  // --- matching ---------------------------------------------------------------------------------
+
+  function matches(r) {
+    if (!filters.stores.has(r.store_prefix)) return false;
+    if (typeof r.size === "string" && r.size && !filters.sizes.has(r.size)) return false;
+    if (filters.tag) {
+      var tags = Array.isArray(r.tags) ? r.tags : [];
+      if (tags.indexOf(filters.tag) === -1) return false;
+    }
+    if (filters.q) {
+      var q = filters.q.toLowerCase();
+      var hay = [
+        String(r.id || ""),
+        String(r.title || ""),
+        Array.isArray(r.tags) ? r.tags.join(" ") : "",
+        String(r.body || "")
+      ].join(" ").toLowerCase();
+      if (hay.indexOf(q) === -1) return false;
+    }
+    return true;
+  }
+
+  // --- header (fixed totals, independent of the filters) --------------------------------------
+
+  function buildHeader() {
+    var counts = {};
+    KNOWN_STATES.forEach(function (s) { counts[s] = 0; });
+    var unknownCount = 0;
+    records.forEach(function (r) {
+      if (KNOWN_STATES.indexOf(r.state) !== -1) counts[r.state]++;
+      else unknownCount++;
+    });
+    var text = KNOWN_STATES.map(function (s) { return counts[s] + " " + s; }).join(" · ");
+    if (unknownCount) text += " · " + unknownCount + " unknown state";
+    document.getElementById("header-counts").textContent = text;
+    document.getElementById("header-stores").textContent = meta.stores.map(function (s) {
+      return s.prefix + " " + s.path;
+    }).join("   ·   ");
+    var when = meta.generated;
+    try { when = new Date(meta.generated).toLocaleString(); } catch (e) { /* keep the raw ISO string */ }
+    document.getElementById("header-generated").textContent = "generated " + when;
+  }
+
+  // --- controls ---------------------------------------------------------------------------------
+
+  function buildChipRow(containerId, values, activeSet, colorFn) {
+    var container = document.getElementById(containerId);
+    container.textContent = "";
+    values.forEach(function (value) {
+      var chip = document.createElement("button");
+      chip.type = "button";
+      chip.className = "chip toggle-chip" + (activeSet.has(value) ? " active" : "");
+      chip.textContent = value;
+      chip.setAttribute("aria-pressed", activeSet.has(value) ? "true" : "false");
+      var color = colorFn(value);
+      if (color) chip.style.setProperty("--chip-color", color);
+      chip.addEventListener("click", function () {
+        if (activeSet.has(value)) {
+          activeSet.delete(value);
+        } else {
+          activeSet.add(value);
+        }
+        if (activeSet.size === 0) {
+          values.forEach(function (v) { activeSet.add(v); });
+        }
+        serializeHash(filters);
+        refreshChips();
+        render();
+      });
+      container.appendChild(chip);
+    });
+  }
+
+  function refreshChips() {
+    buildChipRow("store-chips", storePrefixes(), filters.stores, storeColor);
+    buildChipRow("size-chips", allSizes(), filters.sizes, function () { return null; });
+  }
+
+  function initControls() {
+    var search = document.getElementById("search");
+    search.value = filters.q;
+    search.addEventListener("input", function (e) {
+      filters.q = e.target.value;
+      serializeHash(filters);
+      render();
+    });
+
+    var tagSelect = document.getElementById("tag-select");
+    var anyOption = document.createElement("option");
+    anyOption.value = "";
+    anyOption.textContent = "any tag";
+    tagSelect.appendChild(anyOption);
+    allTags().forEach(function (t) {
+      var opt = document.createElement("option");
+      opt.value = t;
+      opt.textContent = t;
+      tagSelect.appendChild(opt);
+    });
+    tagSelect.value = filters.tag;
+    tagSelect.addEventListener("change", function (e) {
+      filters.tag = e.target.value;
+      serializeHash(filters);
+      render();
+    });
+
+    var closedToggle = document.getElementById("closed-toggle");
+    closedToggle.checked = filters.closed;
+    closedToggle.addEventListener("change", function (e) {
+      filters.closed = e.target.checked;
+      serializeHash(filters);
+      render();
+    });
+
+    refreshChips();
+  }
+
+  // --- cards and columns --------------------------------------------------------------------
+
+  function textLine(className, text) {
+    var el = document.createElement("div");
+    el.className = className;
+    el.textContent = text;
+    return el;
+  }
+
+  function buildCard(r) {
+    var card = document.createElement("article");
+    card.className = "card";
+    card.tabIndex = 0;
+
+    var top = document.createElement("div");
+    top.className = "card-top";
+    var idEl = document.createElement("span");
+    idEl.className = "card-id";
+    idEl.textContent = String(r.id);
+    top.appendChild(idEl);
+    var storeEl = document.createElement("span");
+    storeEl.className = "chip store-chip";
+    storeEl.textContent = String(r.store_prefix);
+    storeEl.style.setProperty("--chip-color", storeColor(r.store_prefix));
+    top.appendChild(storeEl);
+    card.appendChild(top);
+
+    var title = document.createElement("h3");
+    title.className = "card-title";
+    title.textContent = typeof r.title === "string" ? r.title : String(r.id);
+    card.appendChild(title);
+
+    if (Array.isArray(r.tags) && r.tags.length) {
+      var tagRow = document.createElement("div");
+      tagRow.className = "tag-row";
+      r.tags.forEach(function (t) {
+        var pill = document.createElement("span");
+        pill.className = "pill";
+        pill.textContent = String(t);
+        tagRow.appendChild(pill);
+      });
+      card.appendChild(tagRow);
+    }
+
+    var bits = [];
+    if (typeof r.size === "string" && r.size) bits.push("size " + r.size);
+    if (typeof r.created === "string" && r.created) {
+      var age = ageDays(r.created);
+      bits.push(r.created + (age === null ? "" : " (" + age + "d)"));
+    }
+    if (bits.length) card.appendChild(textLine("card-meta", bits.join(" · ")));
+
+    if (r.state === "parked") {
+      var blocked = Array.isArray(r.blocked_by) ? r.blocked_by.join(", ") : r.blocked_by;
+      var waiting = r.trigger ? "trigger: " + r.trigger : blocked ? "blocked by: " + blocked : "";
+      if (waiting) card.appendChild(textLine("card-line", waiting));
+    } else if (r.state === "closed") {
+      var outcome = typeof r.outcome === "string" ? r.outcome : "unknown";
+      var badge = document.createElement("span");
+      badge.className = "badge outcome-" + outcome;
+      badge.textContent = outcome;
+      card.appendChild(badge);
+    } else if (r.state === "ready" && typeof r.reason === "string" && r.reason) {
+      card.appendChild(textLine("card-line reason", r.reason));
+    } else if (KNOWN_STATES.indexOf(r.state) === -1) {
+      var warn = document.createElement("span");
+      warn.className = "badge unknown-state-badge";
+      warn.textContent = "unknown state: " + String(r.state);
+      card.appendChild(warn);
+    }
+
+    card.addEventListener("click", function () { openModal(r); });
+    card.addEventListener("keydown", function (e) {
+      if (e.key === "Enter" || e.key === " ") {
+        e.preventDefault();
+        openModal(r);
+      }
+    });
+    return card;
+  }
+
+  function buildColumn(state, list) {
+    var sorted = list.slice().sort(function (a, b) {
+      var ka = sortKey(a), kb = sortKey(b);
+      return ka < kb ? -1 : ka > kb ? 1 : 0;
+    });
+    var col = document.createElement("section");
+    col.className = "column" + (state === "unknown" ? " column-unknown" : "");
+
+    var head = document.createElement("h2");
+    head.className = "column-head";
+    if (state === "unknown") {
+      var flag = document.createElement("span");
+      flag.className = "flag";
+      flag.textContent = "⚠";
+      head.appendChild(flag);
+      head.appendChild(document.createTextNode("unknown state (" + sorted.length + ")"));
+    } else {
+      head.textContent = state + " (" + sorted.length + ")";
+    }
+    col.appendChild(head);
+
+    var body = document.createElement("div");
+    body.className = "column-body";
+    if (!sorted.length) {
+      body.appendChild(textLine("empty-note", "nothing here"));
+    } else {
+      sorted.forEach(function (r) { body.appendChild(buildCard(r)); });
+    }
+    col.appendChild(body);
+    return col;
+  }
+
+  function render() {
+    var filtered = records.filter(matches);
+    var byState = {};
+    KNOWN_STATES.forEach(function (s) { byState[s] = []; });
+    var unknown = [];
+    filtered.forEach(function (r) {
+      if (KNOWN_STATES.indexOf(r.state) !== -1) byState[r.state].push(r);
+      else unknown.push(r);
+    });
+
+    var columns = document.getElementById("columns");
+    columns.textContent = "";
+    KNOWN_STATES.forEach(function (state) {
+      if (state === "closed" && !filters.closed) return;
+      columns.appendChild(buildColumn(state, byState[state]));
+    });
+    if (unknown.length) columns.appendChild(buildColumn("unknown", unknown));
+  }
+
+  // --- detail modal -------------------------------------------------------------------------
+
+  function fieldValueText(value) {
+    if (Array.isArray(value)) return value.join(", ");
+    if (value !== null && typeof value === "object") return JSON.stringify(value);
+    return String(value);
+  }
+
+  function openModal(r) {
+    var body = document.getElementById("modal-body");
+    body.textContent = "";
+
+    var title = document.createElement("h2");
+    title.id = "modal-title";
+    title.textContent = String(r.id) + " — " + (typeof r.title === "string" ? r.title : "");
+    body.appendChild(title);
+
+    var table = document.createElement("table");
+    table.className = "field-table";
+    Object.keys(r).forEach(function (key) {
+      if (key === "body") return;
+      var row = document.createElement("tr");
+      var th = document.createElement("th");
+      th.textContent = key;
+      var td = document.createElement("td");
+      td.textContent = fieldValueText(r[key]);
+      row.appendChild(th);
+      row.appendChild(td);
+      table.appendChild(row);
+    });
+    body.appendChild(table);
+
+    var pathPara = document.createElement("p");
+    var link = document.createElement("a");
+    link.href = fileUrl(r.path);
+    link.rel = "noopener";
+    link.textContent = typeof r.path === "string" ? r.path : "";
+    pathPara.appendChild(link);
+    body.appendChild(pathPara);
+
+    var showLine = document.createElement("div");
+    showLine.className = "show-line";
+    var code = document.createElement("code");
+    code.textContent = "claude-tasks show " + r.id;
+    var copyBtn = document.createElement("button");
+    copyBtn.type = "button";
+    copyBtn.textContent = "copy";
+    copyBtn.addEventListener("click", function () {
+      try {
+        var p = navigator.clipboard.writeText(code.textContent);
+        if (p && typeof p.then === "function") p.then(function () {}, function () {});
+        copyBtn.textContent = "copied";
+        setTimeout(function () { copyBtn.textContent = "copy"; }, 1200);
+      } catch (e) {
+        /* no clipboard access under this scheme; the text is still selectable */
+      }
+    });
+    showLine.appendChild(code);
+    showLine.appendChild(copyBtn);
+    body.appendChild(showLine);
+
+    var pre = document.createElement("pre");
+    pre.className = "body-text";
+    pre.textContent = typeof r.body === "string" ? r.body : "";
+    body.appendChild(pre);
+
+    document.getElementById("modal-backdrop").hidden = false;
+    document.getElementById("modal-close").focus();
+  }
+
+  function closeModal() {
+    document.getElementById("modal-backdrop").hidden = true;
+  }
+
+  document.getElementById("modal-close").addEventListener("click", closeModal);
+  document.getElementById("modal-backdrop").addEventListener("click", function (e) {
+    if (e.target === e.currentTarget) closeModal();
+  });
+  document.addEventListener("keydown", function (e) {
+    if (e.key === "Escape") closeModal();
+  });
+
+  buildHeader();
+  initControls();
+  render();
+}());
+</script>
+</body>
+</html>
